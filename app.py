@@ -9,33 +9,38 @@ st.set_page_config(
     layout="wide"
 )
 
-# --- CUSTOM CSS UNTUK ANIMASI HALUS & KARTU MODERN ---
+# --- CUSTOM CSS UNTUK DARK MODE YANG ELEGAN & ANIMASI HALUS ---
 st.markdown("""
     <style>
-    /* Styling latar belakang utama */
-    .main {
-        background-color: #f8fafc;
-    }
-    
-    /* Efek Card / Metric Box dengan Animasi Hover Smooth */
+    /* Efek Card / Metric Box khusus Dark Mode dengan Animasi Hover Smooth */
     div.stMetric {
-        background: linear-gradient(135deg, #ffffff 0%, #f1f5f9 100%);
+        background: linear-gradient(135deg, #1e293b 0%, #0f172a 100%);
         padding: 20px;
         border-radius: 14px;
-        box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05), 0 2px 4px -1px rgba(0, 0, 0, 0.03);
-        border: 1px solid #e2e8f0;
+        box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.4);
+        border: 1px solid #334155;
         transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
     }
     div.stMetric:hover {
         transform: translateY(-6px);
-        box-shadow: 0 12px 20px -3px rgba(37, 99, 235, 0.15), 0 4px 6px -2px rgba(0, 0, 0, 0.05);
+        box-shadow: 0 12px 20px -3px rgba(59, 130, 246, 0.3), 0 4px 6px -2px rgba(0, 0, 0, 0.2);
         border-color: #3b82f6;
+    }
+    
+    /* Memastikan teks label dan nilai angka terlihat jelas dan kontras */
+    div.stMetric label {
+        color: #94a3b8 !important;
+        font-weight: 600;
+    }
+    div.stMetric [data-testid="stMetricValue"] {
+        color: #f8fafc !important;
+        font-weight: 700;
     }
     
     /* Perbaikan font & header */
     h1, h2, h3 {
         font-family: 'Inter', sans-serif;
-        color: #1e293b;
+        color: #f8fafc;
         font-weight: 700;
     }
     </style>
@@ -82,7 +87,7 @@ try:
 
     st.markdown("<br>", unsafe_allow_html=True)
 
-    # --- BAGIAN 4: GRAFIK ANALISIS (PLOTLY BERGAYA MODERN) ---
+    # --- BAGIAN 4: GRAFIK ANALISIS (PLOTLY DARK THEME) ---
     col_left, col_right = st.columns(2)
     
     with col_left:
@@ -91,10 +96,9 @@ try:
             tren_tgl = df.groupby('tanggalbuat')['total_harian'].sum().reset_index()
             fig_line = px.line(
                 tren_tgl, x='tanggalbuat', y='total_harian', 
-                markers=True, template='plotly_white',
-                color_discrete_sequence=['#2563eb']
+                markers=True, template='plotly_dark',
+                color_discrete_sequence=['#60a5fa']
             )
-            # Styling grafik agar bersih dan transparan
             fig_line.update_traces(line=dict(width=3), marker=dict(size=8))
             fig_line.update_layout(
                 plot_bgcolor='rgba(0,0,0,0)',
@@ -111,7 +115,7 @@ try:
             top_agen = df.groupby('agen')['total_harian'].sum().reset_index().sort_values(by='total_harian', ascending=False).head(10)
             fig_bar = px.bar(
                 top_agen, x='total_harian', y='agen', orientation='h', 
-                template='plotly_white',
+                template='plotly_dark',
                 color='total_harian',
                 color_continuous_scale='Blues'
             )
