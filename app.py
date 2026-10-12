@@ -10,18 +10,26 @@ st.set_page_config(
 )
 
 # --- CUSTOM CSS UNTUK DARK MODE YANG ELEGAN & ANIMASI HALUS ---
+# --- CUSTOM CSS PEMBERSIH TAMPILAN FULL ---
 st.markdown("""
     <style>
-    /* Menghilangkan footer "Built with Streamlit" */
-    footer {visibility: hidden;}
+    /* 1. Sembunyikan Footer, Header, dan Toolbar */
+    footer {visibility: hidden !important; height: 0px !important;}
+    header {visibility: hidden !important; height: 0px !important;}
+    .stToolbar {visibility: hidden !important;}
     
-    /* Menghilangkan header/menu atas bawaan Streamlit */
-    header {visibility: hidden;}
+    /* 2. Sembunyikan Viewer Footer Frame tambahan */
+    [data-testid="stStatusWidget"] {display: none !important;}
+    .viewerBadge_container__1A12K, [class*="viewerBadge_"] {display: none !important;}
+    #MainMenu {visibility: hidden !important;}
     
-    /* Menghilangkan toolbar melayang & tombol fullscreen */
-    .stToolbar {visibility: hidden;}
+    /* 3. Rapikan Padding Atas & Bawah Halaman */
+    .block-container {
+        padding-top: 1rem !important;
+        padding-bottom: 0rem !important;
+    }
     
-    /* Efek Card / Metric Box khusus Dark Mode dengan Animasi Hover Smooth */
+    /* Efek Card / Metric Box khusus Dark Mode */
     div.stMetric {
         background: linear-gradient(135deg, #1e293b 0%, #0f172a 100%);
         padding: 20px;
@@ -52,7 +60,6 @@ st.markdown("""
     }
     </style>
 """, unsafe_allow_html=True)
-
 # Judul Utama Korporat
 st.title("⚡ Executive Dashboard Anti-Churn & Retention")
 st.markdown("Monitoring performa *follow-up* harian agen secara *real-time* dengan analitik modern.")
