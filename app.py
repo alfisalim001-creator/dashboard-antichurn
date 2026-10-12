@@ -12,6 +12,15 @@ st.set_page_config(
 # --- CUSTOM CSS UNTUK DARK MODE YANG ELEGAN & ANIMASI HALUS ---
 st.markdown("""
     <style>
+    /* Menghilangkan footer "Built with Streamlit" */
+    footer {visibility: hidden;}
+    
+    /* Menghilangkan header/menu atas bawaan Streamlit */
+    header {visibility: hidden;}
+    
+    /* Menghilangkan toolbar melayang & tombol fullscreen */
+    .stToolbar {visibility: hidden;}
+    
     /* Efek Card / Metric Box khusus Dark Mode dengan Animasi Hover Smooth */
     div.stMetric {
         background: linear-gradient(135deg, #1e293b 0%, #0f172a 100%);
@@ -27,7 +36,6 @@ st.markdown("""
         border-color: #3b82f6;
     }
     
-    /* Memastikan teks label dan nilai angka terlihat jelas dan kontras */
     div.stMetric label {
         color: #94a3b8 !important;
         font-weight: 600;
@@ -37,7 +45,6 @@ st.markdown("""
         font-weight: 700;
     }
     
-    /* Perbaikan font & header */
     h1, h2, h3 {
         font-family: 'Inter', sans-serif;
         color: #f8fafc;
