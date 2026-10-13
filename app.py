@@ -1,8 +1,7 @@
+import streamlit as pd
 import streamlit as st
 import pandas as pd
 import plotly.express as px
-import gspread
-from google.oauth2.service_account import Credentials
 from datetime import datetime
 
 # ==========================================
@@ -22,7 +21,6 @@ st.markdown("""
         background-color: #0e1117;
         color: #fafafa;
     }
-    /* Styling Metric Cards */
     div[data-testid="stMetric"] {
         background-color: #161b22;
         border: 1px solid #30363d;
@@ -37,7 +35,6 @@ st.markdown("""
     div[data-testid="stMetric"] div[data-testid="stMetricValue"] {
         color: #58a6ff !important;
     }
-    /* Hide Streamlit Header, Footer, & Menu */
     #MainMenu {visibility: hidden;}
     footer {visibility: hidden;}
     header {visibility: hidden;}
@@ -45,82 +42,35 @@ st.markdown("""
 """, unsafe_allow_html=True)
 
 # ==========================================
-# 2. Koneksi & Load Data dari Google Sheets
+# 2. LOAD DATA DARI GOOGLE SHEETS
 # ==========================================
-@st.cache_resource
-def init_connection():
-    scope = [
-        "https://www.googleapis.com/auth/spreadsheets",
-        "https://www.googleapis.com/auth/drive"
-    ]
-    try:
-        creds_dict = dict(st.secrets["gcp_service_account"])
-        
-        # Pembersihan dan normalisasi format private_key secara aman
-        if "private_key" in creds_dict:
-            pk = str(creds_dict["private_key"]).strip("'\"")
-            pk = pk.replace("\\n", "\n")
-            creds_dict["private_key"] = pk
-            
-        creds = Credentials.from_service_account_info(creds_dict, scopes=scope)
-        client = gspread.authorize(creds)
-        return client
-    except Exception as e:
-        st.error(f"❌ Gagal memuat kredensial Google Sheets. Detail Error: {e}")
-        st.markdown("""
-        ### 💡 Cara Perbaikan Format Secrets di Streamlit Cloud:
-        Pastikan di menu **Settings > Secrets** Streamlit Cloud Anda, bagian `private_key` menggunakan **tiga tanda kutip (`'''`)** agar baris ke bawahnya terbaca sempurna tanpa korupsi karakter:
-        
-        ```toml
-        [gcp_service_account]
-        type = "service_account"
-        project_id = "project-anda"
-        private_key_id = "nomor_id_anda"
-        private_key = '''
-        -----BEGIN PRIVATE KEY-----
-        MIIEvgIBADANBgkqhkiG9w0BAQEFAASCBKgwggSkAgEAAoIBAQC...
-        (tempel seluruh kunci privat Anda apa adanya di sini)
-        -----END PRIVATE KEY-----
-        '''
-        client_email = "email-service-account-anda"
-        client_id = "nomor_client_id"
-        auth_uri = "[https://accounts.google.com/o/oauth2/auth](https://accounts.google.com/o/oauth2/auth)"
-        token_uri = "[https://oauth2.googleapis.com/token](https://oauth2.googleapis.com/token)"
-        auth_provider_x509_cert_url = "[https://www.googleapis.com/oauth2/v1/certs](https://www.googleapis.com/oauth2/v1/certs)"
-        client_x509_cert_url = "[https://www.googleapis.com/robot/v1/metadata/x509/](https://www.googleapis.com/robot/v1/metadata/x509/)..."
-        ```
-        """)
-        st.stop()
-
 @st.cache_data(ttl=600)
 def load_data():
-    client = init_connection()
-    spreadsheet_title = "Master_Dashboard_Anti_Churn_2026_V2"
-    sh = client.open(spreadsheet_title)
-    
-    # Load Pencapaian Revenue
     try:
-        ws_rev = sh.worksheet("pencapaian_revenue")
-        data_rev = ws_rev.get_all_records()
-        df_rev = pd.DataFrame(data_rev)
-    except Exception:
-        df_rev = pd.DataFrame(columns=['TanggalBayar', 'SBU', 'KP', 'Type', 'Revenue_Standalone', 'Transaksi_Standalone', 'Revenue_Akumulasi', 'Transaksi_Akumulasi'])
+        # Menggunakan koneksi native Streamlit gsheets
+        conn = st.connection("gsheets", type="gsheets")
+        
+        # Baca worksheet pencapaian_revenue
+        df_rev = conn.read(worksheet="pencapaian_revenue", ttl=5)
+        if df_rev is None or df_rev.empty:
+            df_rev = pd.DataFrame(columns=['TanggalBayar', 'SBU', 'KP', 'Type', 'Revenue_Standalone', 'Transaksi_Standalone', 'Revenue_Akumulasi', 'Transaksi_Akumulasi'])
 
-    # Load Tren Followup (jika ada)
-    try:
-        ws_fol = sh.worksheet("tren_followup")
-        data_fol = ws_fol.get_all_records()
-        df_fol = pd.DataFrame(data_fol)
-    except Exception:
-        df_fol = pd.DataFrame()
+        # Baca worksheet tren_followup (opsional)
+        try:
+            df_fol = conn.read(worksheet="tren_followup", ttl=5)
+        except Exception:
+            df_fol = pd.DataFrame()
 
-    return df_rev, df_fol
+        return df_rev, df_fol
+    except Exception as e:
+        st.error(f"❌ Gagal memuat data dari Google Sheets. Pastikan koneksi gsheets sudah diatur di secrets. Detail: {e}")
+        st.stop()
 
 df_revenue, df_followup = load_data()
 
-# Validasi & Konversi Format Tanggal
+# Validasi & Konversi Format Tanggal dan Angka
 if not df_revenue.empty:
-    df_revenue['TanggalBayar'] = pd.to_datetime(df_revenue['TanggalBayar'])
+    df_revenue['TanggalBayar'] = pd.to_datetime(df_revenue['TanggalBayar'], errors='coerce')
     df_revenue['Revenue_Standalone'] = pd.to_numeric(df_revenue['Revenue_Standalone'], errors='coerce').fillna(0)
     df_revenue['Transaksi_Standalone'] = pd.to_numeric(df_revenue['Transaksi_Standalone'], errors='coerce').fillna(0)
     df_revenue['Revenue_Akumulasi'] = pd.to_numeric(df_revenue['Revenue_Akumulasi'], errors='coerce').fillna(0)
@@ -133,18 +83,23 @@ st.sidebar.markdown("## 🎛️ Filter Panel")
 st.sidebar.markdown("---")
 
 if not df_revenue.empty:
-    all_sbu = sorted(df_revenue['SBU'].unique().tolist())
+    all_sbu = sorted(df_revenue['SBU'].dropna().unique().tolist())
     selected_sbu = st.sidebar.multiselect("Pilih SBU / Regional", options=all_sbu, default=all_sbu)
     
     filtered_df_kp = df_revenue[df_revenue['SBU'].isin(selected_sbu)]
-    all_kp = sorted(filtered_df_kp['KP'].unique().tolist())
+    all_kp = sorted(filtered_df_kp['KP'].dropna().unique().tolist())
     selected_kp = st.sidebar.multiselect("Pilih Kantor Perwakilan (KP)", options=all_kp, default=all_kp)
 
-    all_type = sorted(df_revenue['Type'].unique().tolist())
+    all_type = sorted(df_revenue['Type'].dropna().unique().tolist())
     selected_type = st.sidebar.multiselect("Pilih Jenis Program (Type)", options=all_type, default=all_type)
 
-    min_date = df_revenue['TanggalBayar'].min().date()
-    max_date = df_revenue['TanggalBayar'].max().date()
+    valid_dates = df_revenue['TanggalBayar'].dropna()
+    if not valid_dates.empty:
+        min_date = valid_dates.min().date()
+        max_date = valid_dates.max().date()
+    else:
+        min_date = datetime.today().date()
+        max_date = datetime.today().date()
     
     date_range = st.sidebar.date_input(
         "Rentang Tanggal",
@@ -167,7 +122,7 @@ if not df_revenue.empty:
         ]
 else:
     df_filtered = pd.DataFrame()
-    st.sidebar.warning("Data Revenue belum tersedia di Google Sheets.")
+    st.sidebar.warning("Data Revenue belum tersedia.")
 
 # ==========================================
 # 4. MAIN CONTENT & TABS UI/UX
