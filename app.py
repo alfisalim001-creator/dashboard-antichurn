@@ -1,7 +1,8 @@
-import streamlit as pd
 import streamlit as st
 import pandas as pd
 import plotly.express as px
+import gspread
+from google.oauth2.service_account import Credentials
 from datetime import datetime
 
 # ==========================================
@@ -42,29 +43,50 @@ st.markdown("""
 """, unsafe_allow_html=True)
 
 # ==========================================
-# 2. LOAD DATA DARI GOOGLE SHEETS
+# 2. KONEKSI & LOAD DATA DARI GOOGLE SHEETS
 # ==========================================
+@st.cache_resource
+def init_connection():
+    scope = [
+        "https://www.googleapis.com/auth/spreadsheets",
+        "https://www.googleapis.com/auth/drive"
+    ]
+    # Mengambil dict secrets secara aman
+    creds_dict = dict(st.secrets["gcp_service_account"])
+    
+    # Normalisasi otomatis newline pada private key untuk menghindari error deserialisasi
+    if "private_key" in creds_dict:
+        pk = str(creds_dict["private_key"]).strip("'\"")
+        pk = pk.replace("\\n", "\n")
+        creds_dict["private_key"] = pk
+
+    creds = Credentials.from_service_account_info(creds_dict, scopes=scope)
+    client = gspread.authorize(creds)
+    return client
+
 @st.cache_data(ttl=600)
 def load_data():
+    client = init_connection()
+    spreadsheet_title = "Master_Dashboard_Anti_Churn_2026_V2"
+    sh = client.open(spreadsheet_title)
+    
+    # Load Pencapaian Revenue
     try:
-        # Menggunakan koneksi native Streamlit gsheets
-        conn = st.connection("gsheets", type="gsheets")
-        
-        # Baca worksheet pencapaian_revenue
-        df_rev = conn.read(worksheet="pencapaian_revenue", ttl=5)
-        if df_rev is None or df_rev.empty:
-            df_rev = pd.DataFrame(columns=['TanggalBayar', 'SBU', 'KP', 'Type', 'Revenue_Standalone', 'Transaksi_Standalone', 'Revenue_Akumulasi', 'Transaksi_Akumulasi'])
+        ws_rev = sh.worksheet("pencapaian_revenue")
+        data_rev = ws_rev.get_all_records()
+        df_rev = pd.DataFrame(data_rev)
+    except Exception:
+        df_rev = pd.DataFrame(columns=['TanggalBayar', 'SBU', 'KP', 'Type', 'Revenue_Standalone', 'Transaksi_Standalone', 'Revenue_Akumulasi', 'Transaksi_Akumulasi'])
 
-        # Baca worksheet tren_followup (opsional)
-        try:
-            df_fol = conn.read(worksheet="tren_followup", ttl=5)
-        except Exception:
-            df_fol = pd.DataFrame()
+    # Load Tren Followup (jika ada)
+    try:
+        ws_fol = sh.worksheet("tren_followup")
+        data_fol = ws_fol.get_all_records()
+        df_fol = pd.DataFrame(data_fol)
+    except Exception:
+        df_fol = pd.DataFrame()
 
-        return df_rev, df_fol
-    except Exception as e:
-        st.error(f"❌ Gagal memuat data dari Google Sheets. Pastikan koneksi gsheets sudah diatur di secrets. Detail: {e}")
-        st.stop()
+    return df_rev, df_fol
 
 df_revenue, df_followup = load_data()
 
