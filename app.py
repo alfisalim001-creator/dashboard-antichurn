@@ -53,15 +53,44 @@ def init_connection():
         "https://www.googleapis.com/auth/spreadsheets",
         "https://www.googleapis.com/auth/drive"
     ]
-    creds_dict = dict(st.secrets["gcp_service_account"])
-    
-    # Normalisasi otomatis private key agar karakter newline terbaca dengan benar
-    if "private_key" in creds_dict:
-        creds_dict["private_key"] = creds_dict["private_key"].replace("\\n", "\n")
+    try:
+        creds_dict = dict(st.secrets["gcp_service_account"])
         
-    creds = Credentials.from_service_account_info(creds_dict, scopes=scope)
-    client = gspread.authorize(creds)
-    return client
+        # Pembersihan dan normalisasi format private_key secara aman
+        if "private_key" in creds_dict:
+            pk = str(creds_dict["private_key"]).strip("'\"")
+            pk = pk.replace("\\n", "\n")
+            creds_dict["private_key"] = pk
+            
+        creds = Credentials.from_service_account_info(creds_dict, scopes=scope)
+        client = gspread.authorize(creds)
+        return client
+    except Exception as e:
+        st.error(f"❌ Gagal memuat kredensial Google Sheets. Detail Error: {e}")
+        st.markdown("""
+        ### 💡 Cara Perbaikan Format Secrets di Streamlit Cloud:
+        Pastikan di menu **Settings > Secrets** Streamlit Cloud Anda, bagian `private_key` menggunakan **tiga tanda kutip (`'''`)** agar baris ke bawahnya terbaca sempurna tanpa korupsi karakter:
+        
+        ```toml
+        [gcp_service_account]
+        type = "service_account"
+        project_id = "project-anda"
+        private_key_id = "nomor_id_anda"
+        private_key = '''
+        -----BEGIN PRIVATE KEY-----
+        MIIEvgIBADANBgkqhkiG9w0BAQEFAASCBKgwggSkAgEAAoIBAQC...
+        (tempel seluruh kunci privat Anda apa adanya di sini)
+        -----END PRIVATE KEY-----
+        '''
+        client_email = "email-service-account-anda"
+        client_id = "nomor_client_id"
+        auth_uri = "[https://accounts.google.com/o/oauth2/auth](https://accounts.google.com/o/oauth2/auth)"
+        token_uri = "[https://oauth2.googleapis.com/token](https://oauth2.googleapis.com/token)"
+        auth_provider_x509_cert_url = "[https://www.googleapis.com/oauth2/v1/certs](https://www.googleapis.com/oauth2/v1/certs)"
+        client_x509_cert_url = "[https://www.googleapis.com/robot/v1/metadata/x509/](https://www.googleapis.com/robot/v1/metadata/x509/)..."
+        ```
+        """)
+        st.stop()
 
 @st.cache_data(ttl=600)
 def load_data():
@@ -104,20 +133,16 @@ st.sidebar.markdown("## 🎛️ Filter Panel")
 st.sidebar.markdown("---")
 
 if not df_revenue.empty:
-    # Filter SBU
     all_sbu = sorted(df_revenue['SBU'].unique().tolist())
     selected_sbu = st.sidebar.multiselect("Pilih SBU / Regional", options=all_sbu, default=all_sbu)
     
-    # Filter KP (berdasarkan SBU yang dipilih)
     filtered_df_kp = df_revenue[df_revenue['SBU'].isin(selected_sbu)]
     all_kp = sorted(filtered_df_kp['KP'].unique().tolist())
     selected_kp = st.sidebar.multiselect("Pilih Kantor Perwakilan (KP)", options=all_kp, default=all_kp)
 
-    # Filter Type Program
     all_type = sorted(df_revenue['Type'].unique().tolist())
     selected_type = st.sidebar.multiselect("Pilih Jenis Program (Type)", options=all_type, default=all_type)
 
-    # Filter Tanggal
     min_date = df_revenue['TanggalBayar'].min().date()
     max_date = df_revenue['TanggalBayar'].max().date()
     
@@ -128,7 +153,6 @@ if not df_revenue.empty:
         max_value=max_date
     )
 
-    # Terapkan Filter ke DataFrame Revenue
     df_filtered = df_revenue[
         df_revenue['SBU'].isin(selected_sbu) &
         df_revenue['KP'].isin(selected_kp) &
@@ -155,7 +179,6 @@ st.markdown("---")
 if df_filtered.empty:
     st.warning("⚠️ Tidak ada data yang sesuai dengan filter yang Anda pilih.")
 else:
-    # Top-Level Tabs Navigasi
     tab_summary, tab_followup, tab_standalone, tab_accumulated = st.tabs([
         "📊 Executive Summary", 
         "📞 Follow-up & Operasional", 
@@ -163,9 +186,6 @@ else:
         "📈 Pencapaian Akumulasi"
     ])
 
-    # ----------------------------------------------------
-    # TAB 1: EXECUTIVE SUMMARY
-    # ----------------------------------------------------
     with tab_summary:
         st.subheader("📌 Ringkasan Performa Utama")
         
@@ -197,9 +217,6 @@ else:
             fig_sbu.update_layout(xaxis_title="SBU", yaxis_title="Total Revenue (Rp)", showlegend=False, margin=dict(l=20, r=20, t=20, b=20))
             st.plotly_chart(fig_sbu, use_container_width=True)
 
-    # ----------------------------------------------------
-    # TAB 2: FOLLOW-UP & OPERASIONAL
-    # ----------------------------------------------------
     with tab_followup:
         st.subheader("📞 Modul Analisis Follow-up & Tagihan")
         if not df_followup.empty:
@@ -207,9 +224,6 @@ else:
         else:
             st.info("💡 Modul follow-up siap diintegrasikan dengan data dari tab `tren_followup` Google Sheets Anda.")
 
-    # ----------------------------------------------------
-    # TAB 3: PENCAPAIAN STAND-ALONE
-    # ----------------------------------------------------
     with tab_standalone:
         st.subheader("💰 Analisis Fluktuasi Harian (Stand-Alone)")
         st.markdown("Menampilkan data transaksi dan nominal pencapaian murni per hari.")
@@ -226,9 +240,6 @@ else:
             height=400
         )
 
-    # ----------------------------------------------------
-    # TAB 4: PENCAPAIAN AKUMULASI
-    # ----------------------------------------------------
     with tab_accumulated:
         st.subheader("📈 Trajektori Pertumbuhan Kumulatif (Akumulasi)")
         st.markdown("Grafik laju pertumbuhan berjalan (*running total*) untuk mengukur pencapaian target jangka panjang.")
