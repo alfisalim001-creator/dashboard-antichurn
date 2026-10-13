@@ -53,14 +53,12 @@ def init_connection():
         "https://www.googleapis.com/auth/spreadsheets",
         "https://www.googleapis.com/auth/drive"
     ]
-    # Mengambil kredensial dari st.secrets Streamlit Cloud
     creds_dict = dict(st.secrets["gcp_service_account"])
     creds = Credentials.from_service_account_info(creds_dict, scopes=scope)
     client = gspread.authorize(creds)
     return client
 
 @st.cache_data(ttl=600)
-data loading logic...
 def load_data():
     client = init_connection()
     spreadsheet_title = "Master_Dashboard_Anti_Churn_2026_V2"
@@ -168,7 +166,6 @@ else:
         
         total_rev_sa = df_filtered['Revenue_Standalone'].sum()
         total_trx_sa = df_filtered['Transaksi_Standalone'].sum()
-        # Ambil nilai akumulasi terakhir dari data terfilter
         max_date_filtered = df_filtered['TanggalBayar'].max()
         df_latest_acc = df_filtered[df_filtered['TanggalBayar'] == max_date_filtered]
         total_rev_acc = df_latest_acc['Revenue_Akumulasi'].sum()
@@ -212,7 +209,6 @@ else:
         st.subheader("💰 Analisis Fluktuasi Harian (Stand-Alone)")
         st.markdown("Menampilkan data transaksi dan nominal pencapaian murni per hari.")
 
-        # Agregasi tabel stand-alone
         df_table_sa = df_filtered.groupby(['TanggalBayar', 'SBU', 'KP', 'Type'])[['Revenue_Standalone', 'Transaksi_Standalone']].sum().reset_index()
         df_table_sa['TanggalBayar'] = df_table_sa['TanggalBayar'].dt.strftime('%Y-%m-%d')
         
